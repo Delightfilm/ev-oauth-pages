@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://qyfkkcucjonxrygtvmit.supabase.co; form-action https://prd.kr-ccapi.hyundai.com https://dev.kr-ccapi.hyundai.com https://prd.kr-ccapi.kia.com https://dev.kr-ccapi.kia.com https://qyfkkcucjonxrygtvmit.supabase.co 'self'; base-uri 'none'">
+<title>차량 데이터 제공 동의</title>
+<style>
+  body{font-family:sans-serif;max-width:420px;margin:15vh auto;padding:20px;line-height:1.6}
+  button{width:100%;padding:14px;font-size:16px;border:0;border-radius:10px;background:#002c5f;color:#fff}
+  button[disabled]{opacity:.5}
+  #msg{color:#444}
+</style>
+</head>
+<body>
+<h2>차량 데이터 연결</h2>
+<p id="msg">잠시만 기다려 주세요…</p>
+<form id="f" method="post" hidden></form>
+<button id="go" type="button" hidden>동의 화면으로 이동</button>
+<script>
+// 배포 때 tools/oauth-pages/build.mjs 가 아래 세 자리표시자를 채운다. 채우지 않은 채로는 아무것도 보내지 않는다.
+var FN_BASE = 'https://qyfkkcucjonxrygtvmit.supabase.co/functions/v1/vehicle-oauth';                           // 함수 주소를 주소 조각에서 받지 않고 여기에 고정한다
+var HMG_ORIGINS = []; try { HMG_ORIGINS = JSON.parse('["https://prd.kr-ccapi.hyundai.com","https://dev.kr-ccapi.hyundai.com","https://prd.kr-ccapi.kia.com","https://dev.kr-ccapi.kia.com"]'); } catch (e) {}   // 동의 폼을 보낼 수 있는 제조사 출처
+// 주소 조각(#t=티켓)에서 티켓만 읽는다. fn 등 다른 값은 무시한다.
+function parseFragment(hash) {
+  var p = new URLSearchParams(String(hash || '').replace(/^#/, ''));
+  return { t: p.get('t') || '' };
+}
+// 서버가 준 {action, token, state} → 폼 명세. action 은 제조사 출처(https)만 허용.
+function allowedAction(action) {
+  try { var u = new URL(action); return u.protocol === 'https:' && HMG_ORIGINS.indexOf(u.origin) >= 0; } catch (e) { return false; }
+}
+function buildFormSpec(data) {
+  if (!data || typeof data.action !== 'string' || !allowedAction(data.action) || typeof data.token !== 'string') return null;
+  return { action: data.action, method: 'post', fields: [['token', data.token], ['state', String(data.state == null ? '' : data.state)]] };
+}
+function fillForm(doc, form, spec) {
+  form.setAttribute('action', spec.action);
+  form.setAttribute('method', spec.method);
+  while (form.firstChild) form.removeChild(form.firstChild);
+  spec.fields.forEach(function (kv) {
+    var i = doc.createElement('input');
+    i.type = 'hidden'; i.name = kv[0]; i.value = kv[1];
+    form.appendChild(i);
+  });
+}
+function main() {
+  var msg = document.getElementById('msg'), form = document.getElementById('f'), go = document.getElementById('go');
+  var frag = parseFragment(location.hash);
+  history.replaceState(null, '', location.pathname + location.search);
+  function fail() { msg.textContent = '연결 정보를 가져오지 못했어요. 앱으로 돌아가 다시 시도해 주세요.'; }
+  if (!frag.t || !/^https:\/\//.test(FN_BASE)) return fail();
+  fetch(FN_BASE.replace(/\/+$/, '') + '/consent-data', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: frag.t }), referrerPolicy: 'no-referrer'
+  }).then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); }).then(function (data) {
+    var spec = buildFormSpec(data);
+    if (!spec) return fail();
+    fillForm(document, form, spec);
+    msg.textContent = '기아·현대 화면으로 이동합니다. 이동하지 않으면 아래 버튼을 눌러 주세요.';
+    go.hidden = false;
+    go.onclick = function () { form.submit(); };
+    form.submit();
+  }).catch(fail);
+}
+if (typeof window !== 'undefined' && window.__EV_TEST__) {
+  window.__consent = { parseFragment: parseFragment, buildFormSpec: buildFormSpec, fillForm: fillForm, allowedAction: allowedAction, FN_BASE: FN_BASE };
+} else {
+  main();
+}
+</script>
+</body>
+</html>

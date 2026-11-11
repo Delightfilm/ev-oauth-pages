@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>연결하지 못했어요</title>
+<style>body{font-family:sans-serif;max-width:420px;margin:15vh auto;padding:20px;line-height:1.6}</style>
+</head>
+<body>
+<h2 id="title">연결하지 못했어요</h2>
+<p id="text"></p>
+<script>
+// ?reason= 값은 아래 고정 문구를 고르는 데만 쓰고, 화면에 그대로 찍지 않는다.
+var TEXTS = {
+  expired: ['만료된 요청', '연결 요청이 만료됐어요. 앱에서 다시 연결을 시작해 주세요.'],
+  invalid: ['올바르지 않은 요청', '올바르지 않은 요청이에요. 앱에서 다시 연결을 시작해 주세요.'],
+  failed: ['연결하지 못했어요', '제조사와 연결하지 못했어요. 앱으로 돌아가 다시 시도해 주세요.'],
+  taken: ['이미 연결된 계정', '이 {brand} 계정은 다른 차계부 계정에 연결돼 있어요. 그 계정에서 연결을 해제한 뒤 앱에서 처음부터 다시 연결해 주세요.']
+};
+// ?p= 도 고정 이름을 고르는 데만 쓴다(모르는 값이면 제조사 이름 없이).
+var BRANDS = { kia: '기아', hyundai: '현대' };
+var has = function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); };
+var q = new URLSearchParams(location.search);
+var r = q.get('reason');
+var p = q.get('p');
+var t = has(TEXTS, r) ? TEXTS[r] : TEXTS.failed;
+var text = t[1].split(' {brand} ').join(has(BRANDS, p) ? ' ' + BRANDS[p] + ' ' : ' ');
+document.getElementById('title').textContent = t[0];
+document.getElementById('text').textContent = text;
+</script>
+</body>
+</html>
